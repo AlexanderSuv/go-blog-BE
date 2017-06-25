@@ -75,11 +75,7 @@ func saveAuthors(a *[]Author) error {
 		return err
 	}
 
-	if writeErr := ioutil.WriteFile(PathToAuthors, bytes, 0600); writeErr != nil {
-		return writeErr
-	}
-
-	return nil
+	return ioutil.WriteFile(PathToAuthors, bytes, 0600)
 }
 
 func getAuthorArrIndex(authorId string, authors *[]Author) int {
