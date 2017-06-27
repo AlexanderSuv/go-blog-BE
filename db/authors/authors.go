@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/nu7hatch/gouuid"
+	"sync"
 )
 
 // INITIALIZATION
 
 var PathToAuthors = getPathToAuthors()
+var FileMutex = &sync.RWMutex{}
 
 func getPathToAuthors() string {
 	path, filenameErr := filepath.Abs("./db/db_data/authors.json")
@@ -28,12 +30,12 @@ func getPathToAuthors() string {
 // TYPES
 
 type Author struct {
-	Id         string `json:"id"`
-	Age        int    `json:"age"`
-	Name       NameType
-	Company    string `json:"company"`
-	Email      string `json:"email"`
-	Registered int64  `json:"registered"`
+	Id         string   `json:"id"`
+	Age        int      `json:"age"`
+	Name       NameType `json:"name"`
+	Company    string   `json:"company"`
+	Email      string   `json:"email"`
+	Registered int64    `json:"registered"`
 }
 
 type NameType struct {
@@ -63,7 +65,7 @@ func (a *Author) ToString() string {
 
 func (a *Author) isValid() bool {
 	var isValid = false
-	if a.Age != 0 && a.Name.isValid() && a.Company != "" && a.Email != "" {
+	if a.Age != 0 && a.Name.isValid() && a.Company != "" && a.Email != "" && a.Registered == 0 {
 		isValid = true
 	}
 	return isValid
@@ -74,7 +76,8 @@ func saveAuthors(a *[]Author) error {
 	if err != nil {
 		return err
 	}
-
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
 	return ioutil.WriteFile(PathToAuthors, bytes, 0600)
 }
 
@@ -92,14 +95,14 @@ func getAuthorArrIndex(authorId string, authors *[]Author) int {
 
 // API
 
-func (a *Author) Save() (*Author, error) {
+func (a *Author) Save() error {
 	if !a.isValid() {
-		return nil, errors.New("Not a valid author. Can`t save.")
+		return errors.New("Not a valid author. Can`t save.")
 	}
 
 	blogAuthors, err := Get()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
@@ -107,7 +110,7 @@ func (a *Author) Save() (*Author, error) {
 	if authorArrIndex == -1 || a.Id == "" {
 		u, uuidErr := uuid.NewV4()
 		if uuidErr != nil {
-			return nil, uuidErr
+			return uuidErr
 		}
 		a.Id = u.String()
 		a.Registered = time.Now().UnixNano() / 1000000
@@ -117,10 +120,10 @@ func (a *Author) Save() (*Author, error) {
 	}
 
 	if saveErr := saveAuthors(blogAuthors); saveErr != nil {
-		return nil, saveErr
+		return saveErr
 	}
 
-	return a, nil
+	return nil
 }
 
 func (a *Author) Delete() error {
@@ -138,22 +141,25 @@ func (a *Author) Delete() error {
 	return saveAuthors(blogAuthors)
 }
 
-func GetById(Id string) (*Author, error) {
+func (a *Author) Get() error {
 	blogAuthors, err := Get()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	authorArrIndex := getAuthorArrIndex(Id, blogAuthors)
+	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
 
 	if authorArrIndex == -1 {
-		return nil, errors.New("No author found. Can`t delete.")
+		return errors.New("No author found. Can`t delete.")
 	}
 
-	return &(*blogAuthors)[authorArrIndex], nil
+	*a = (*blogAuthors)[authorArrIndex]
+	return nil
 }
 
 func Get() (*[]Author, error) {
+	FileMutex.RLock()
 	raw, readFileErr := ioutil.ReadFile(PathToAuthors)
+	FileMutex.RUnlock()
 	if readFileErr != nil {
 		return nil, readFileErr
 	}

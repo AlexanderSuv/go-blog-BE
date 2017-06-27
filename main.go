@@ -1,9 +1,11 @@
 package main
 
 import (
-	"github.com/AlexanderSuv/goblog/server"
+	"github.com/AlexanderSuv/go-blog-BE/router"
+	"log"
+	"net/http"
 )
 
 func main() {
-	server.Start()
+	log.Fatal(http.ListenAndServe(":8080", router.New()))
 }
