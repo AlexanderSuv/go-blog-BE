@@ -9,14 +9,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nu7hatch/gouuid"
 	"sync"
+
+	"github.com/go-playground/validator"
+	"github.com/nu7hatch/gouuid"
 )
 
 // INITIALIZATION
 
 var PathToAuthors = getPathToAuthors()
 var FileMutex = &sync.RWMutex{}
+var validate = validator.New()
 
 func getPathToAuthors() string {
 	path, filenameErr := filepath.Abs("./db/db_data/authors.json")
@@ -30,28 +33,20 @@ func getPathToAuthors() string {
 // TYPES
 
 type Author struct {
-	Id         string   `json:"id"`
-	Age        int      `json:"age"`
-	Name       NameType `json:"name"`
-	Company    string   `json:"company"`
-	Email      string   `json:"email"`
-	Registered int64    `json:"registered"`
+	Id         string   `json:"id" validate:"required"`
+	Age        int      `json:"age" validate:"required"`
+	Name       NameType `json:"name" validate:"required,dive,required"`
+	Company    string   `json:"company" validate:"required"`
+	Email      string   `json:"email" validate:"required,email"`
+	Registered int64    `json:"registered" validate:"required"`
 }
 
 type NameType struct {
-	First string `json:"first"`
-	Last  string `json:"last"`
+	First string `json:"first" validate:"required"`
+	Last  string `json:"last" validate:"required"`
 }
 
 // TYPE HELPERS
-
-func (n *NameType) isValid() bool {
-	var isValid = false
-	if n.First != "" && n.Last != "" {
-		isValid = true
-	}
-	return isValid
-}
 
 func (a *Author) ToString() string {
 	bytes, err := json.Marshal(a)
@@ -63,21 +58,11 @@ func (a *Author) ToString() string {
 	return string(bytes)
 }
 
-func (a *Author) isValid() bool {
-	var isValid = false
-	if a.Age != 0 && a.Name.isValid() && a.Company != "" && a.Email != "" && a.Registered == 0 {
-		isValid = true
-	}
-	return isValid
-}
-
 func saveAuthors(a *[]Author) error {
 	bytes, err := json.Marshal(a)
 	if err != nil {
 		return err
 	}
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
 	return ioutil.WriteFile(PathToAuthors, bytes, 0600)
 }
 
@@ -93,12 +78,29 @@ func getAuthorArrIndex(authorId string, authors *[]Author) int {
 	return result
 }
 
+func softAssign(from *Author, to *Author) {
+	if from.Age != 0 {
+		to.Age = from.Age
+	}
+	if from.Name.First != "" {
+		to.Name.First = from.Name.First
+	}
+	if from.Name.Last != "" {
+		to.Name.Last = from.Name.Last
+	}
+	if from.Email != "" {
+		to.Email = from.Email
+	}
+	if from.Company != "" {
+		to.Company = from.Company
+	}
+}
+
 // API
 
-func (a *Author) Save() error {
-	if !a.isValid() {
-		return errors.New("Not a valid author. Can`t save.")
-	}
+func (a *Author) Update() error {
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
 
 	blogAuthors, err := Get()
 	if err != nil {
@@ -107,26 +109,24 @@ func (a *Author) Save() error {
 
 	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
 
-	if authorArrIndex == -1 || a.Id == "" {
-		u, uuidErr := uuid.NewV4()
-		if uuidErr != nil {
-			return uuidErr
-		}
-		a.Id = u.String()
-		a.Registered = time.Now().UnixNano() / 1000000
-		*blogAuthors = append(*blogAuthors, *a)
-	} else {
-		(*blogAuthors)[authorArrIndex] = *a
+	if authorArrIndex == -1 {
+		return errors.New("Author not found. Can`t save")
 	}
 
-	if saveErr := saveAuthors(blogAuthors); saveErr != nil {
-		return saveErr
-	}
+	authorToUpdate := &(*blogAuthors)[authorArrIndex]
+	softAssign(a, authorToUpdate)
+	*a = *authorToUpdate
 
-	return nil
+	if err := validate.Struct(authorToUpdate); err != nil {
+		return err
+	}
+	return saveAuthors(blogAuthors)
 }
 
 func (a *Author) Delete() error {
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
+
 	blogAuthors, err := Get()
 	if err != nil {
 		return err
@@ -156,12 +156,35 @@ func (a *Author) Get() error {
 	return nil
 }
 
+func NewAuthor(a *Author) error {
+	u, uuidErr := uuid.NewV4()
+	if uuidErr != nil {
+		return uuidErr
+	}
+
+	a.Id = u.String()
+	a.Registered = time.Now().UnixNano() / 1000000
+
+	if err := validate.Struct(a); err != nil {
+		return err
+	}
+
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
+
+	blogAuthors, err := Get()
+	if err != nil {
+		return err
+	}
+
+	*blogAuthors = append(*blogAuthors, *a)
+	return saveAuthors(blogAuthors)
+}
+
 func Get() (*[]Author, error) {
-	FileMutex.RLock()
 	raw, readFileErr := ioutil.ReadFile(PathToAuthors)
-	FileMutex.RUnlock()
 	if readFileErr != nil {
-		return nil, readFileErr
+		return nil, errors.New("Can`t read authors file")
 	}
 
 	var blogAuthors []Author

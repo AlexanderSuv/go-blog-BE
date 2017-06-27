@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"errors"
+	"net/http"
+
 	"github.com/AlexanderSuv/go-blog-BE/db/authors"
 	"github.com/gorilla/mux"
-	"net/http"
 )
 
 type Authors []authors.Author
@@ -13,7 +13,7 @@ func (as *Authors) Get(w http.ResponseWriter, r *http.Request) {
 	blogAuthors, err := authors.Get()
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err, "Can`t read authors file")
+		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -25,7 +25,25 @@ func (as *Authors) GetById(w http.ResponseWriter, r *http.Request) {
 	author := &authors.Author{Id: id}
 
 	if err := author.Get(); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err, "Can`t read authors file")
+		respondWithError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respondWithJson(w, author)
+}
+
+func (as *Authors) Put(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	var author authors.Author
+
+	if err := parseJson(r, &author); err != nil {
+		respondWithError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	author.Id = id
+	if err := author.Update(); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -34,32 +52,16 @@ func (as *Authors) GetById(w http.ResponseWriter, r *http.Request) {
 
 func (as *Authors) Post(w http.ResponseWriter, r *http.Request) {
 	var author authors.Author
-	id := mux.Vars(r)["id"]
 
 	if err := parseJson(r, &author); err != nil {
-		respondWithError(w, http.StatusBadRequest, err, "Invalid requiest payload")
+		respondWithError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if !isValidAuthorRequest(&author) {
-		respondWithError(w, http.StatusBadRequest, errors.New("Invalid requiest payload"), "Invalid requiest payload")
-		return
-	}
-
-	author.Id = id
-
-	if err := author.Save(); err != nil {
-		respondWithError(w, http.StatusInternalServerError, err, "Can`t save author")
+	if err := authors.NewAuthor(&author); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	respondWithJson(w, author)
-}
-
-func isValidAuthorRequest(a *authors.Author) bool {
-	isValid := false
-	if a.Id == "" && a.Registered == 0 {
-		isValid = true
-	}
-	return isValid
 }

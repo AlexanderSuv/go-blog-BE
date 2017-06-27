@@ -16,13 +16,13 @@ func respondWithJson(w http.ResponseWriter, payload interface{}) {
 	}
 }
 
-func respondWithError(w http.ResponseWriter, code int, err error, message string) {
+func respondWithError(w http.ResponseWriter, code int, err error) {
 	log.Println(err)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	if err := json.NewEncoder(w).Encode(map[string]string{"message": message}); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": err.Error()}); err != nil {
 		panic(err)
 	}
 }

@@ -1,9 +1,10 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/AlexanderSuv/go-blog-BE/controllers"
 	"github.com/gorilla/mux"
-	"net/http"
 )
 
 var API_VERSION_PREFIX = "/api/v1/"
@@ -18,10 +19,10 @@ func New() *mux.Router {
 	apiRouter := mux.NewRouter().StrictSlash(true)
 
 	controllerAuthors := controllers.Authors{}
-	addRoute(&Route{"GET", "/authors/", controllerAuthors.Get}, apiRouter)
+	addRoute(&Route{"GET", "/authors", controllerAuthors.Get}, apiRouter)
 	addRoute(&Route{"POST", "/authors", controllerAuthors.Post}, apiRouter)
 	addRoute(&Route{"GET", "/authors/{id}", controllerAuthors.GetById}, apiRouter)
-	addRoute(&Route{"POST", "/authors/{id}", controllerAuthors.Post}, apiRouter)
+	addRoute(&Route{"PUT", "/authors/{id}", controllerAuthors.Put}, apiRouter)
 
 	return apiRouter
 }
