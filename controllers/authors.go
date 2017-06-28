@@ -65,3 +65,15 @@ func (as *Authors) Post(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJson(w, author)
 }
+
+func (as *Authors) Delete(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	author := authors.Author{Id: id}
+
+	if err := author.Delete(); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respondWithJson(w, struct{}{})
+}

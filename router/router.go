@@ -23,6 +23,7 @@ func New() *mux.Router {
 	addRoute(&Route{"POST", "/authors", controllerAuthors.Post}, apiRouter)
 	addRoute(&Route{"GET", "/authors/{id}", controllerAuthors.GetById}, apiRouter)
 	addRoute(&Route{"PUT", "/authors/{id}", controllerAuthors.Put}, apiRouter)
+	addRoute(&Route{"DELETE", "/authors/{id}", controllerAuthors.Delete}, apiRouter)
 
 	return apiRouter
 }
