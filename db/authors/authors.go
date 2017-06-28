@@ -58,7 +58,21 @@ func (a *Author) ToString() string {
 	return string(bytes)
 }
 
-func saveAuthors(a *[]Author) error {
+func readAuthors() (*[]Author, error) {
+	raw, readFileErr := ioutil.ReadFile(PathToAuthors)
+	if readFileErr != nil {
+		return nil, errors.New("Can`t read authors file")
+	}
+
+	var blogAuthors []Author
+	if parseErr := json.Unmarshal(raw, &blogAuthors); parseErr != nil {
+		return nil, parseErr
+	}
+
+	return &blogAuthors, nil
+}
+
+func writeAuthors(a *[]Author) error {
 	bytes, err := json.Marshal(a)
 	if err != nil {
 		return err
@@ -102,7 +116,7 @@ func (a *Author) Update() error {
 	FileMutex.Lock()
 	defer FileMutex.Unlock()
 
-	blogAuthors, err := Get()
+	blogAuthors, err := readAuthors()
 	if err != nil {
 		return err
 	}
@@ -120,14 +134,14 @@ func (a *Author) Update() error {
 	if err := validate.Struct(authorToUpdate); err != nil {
 		return err
 	}
-	return saveAuthors(blogAuthors)
+	return writeAuthors(blogAuthors)
 }
 
 func (a *Author) Delete() error {
 	FileMutex.Lock()
 	defer FileMutex.Unlock()
 
-	blogAuthors, err := Get()
+	blogAuthors, err := readAuthors()
 	if err != nil {
 		return err
 	}
@@ -138,11 +152,13 @@ func (a *Author) Delete() error {
 	}
 
 	*blogAuthors = append((*blogAuthors)[:authorArrIndex], (*blogAuthors)[authorArrIndex+1:]...)
-	return saveAuthors(blogAuthors)
+	return writeAuthors(blogAuthors)
 }
 
 func (a *Author) Get() error {
-	blogAuthors, err := Get()
+	FileMutex.Lock()
+	defer FileMutex.Unlock()
+	blogAuthors, err := readAuthors()
 	if err != nil {
 		return err
 	}
@@ -172,25 +188,17 @@ func NewAuthor(a *Author) error {
 	FileMutex.Lock()
 	defer FileMutex.Unlock()
 
-	blogAuthors, err := Get()
+	blogAuthors, err := readAuthors()
 	if err != nil {
 		return err
 	}
 
 	*blogAuthors = append(*blogAuthors, *a)
-	return saveAuthors(blogAuthors)
+	return writeAuthors(blogAuthors)
 }
 
 func Get() (*[]Author, error) {
-	raw, readFileErr := ioutil.ReadFile(PathToAuthors)
-	if readFileErr != nil {
-		return nil, errors.New("Can`t read authors file")
-	}
-
-	var blogAuthors []Author
-	if parseErr := json.Unmarshal(raw, &blogAuthors); parseErr != nil {
-		return nil, parseErr
-	}
-
-	return &blogAuthors, nil
+	FileMutex.RLock()
+	defer FileMutex.RUnlock()
+	return readAuthors()
 }
