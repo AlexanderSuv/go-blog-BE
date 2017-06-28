@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/AlexanderSuv/go-blog-BE/router"
 	"log"
 	"net/http"
+
+	"github.com/AlexanderSuv/go-blog-BE/router"
 )
 
 func main() {

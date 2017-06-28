@@ -1,4 +1,4 @@
-package authors
+package db
 
 import (
 	"encoding/json"
@@ -11,17 +11,15 @@ import (
 
 	"sync"
 
-	"github.com/go-playground/validator"
 	"github.com/nu7hatch/gouuid"
 )
 
 // INITIALIZATION
 
-var PathToAuthors = getPathToAuthors()
-var FileMutex = &sync.RWMutex{}
-var validate = validator.New()
+var pathToAuthors = getpathToAuthors()
+var authorsFileMutex = &sync.RWMutex{}
 
-func getPathToAuthors() string {
+func getpathToAuthors() string {
 	path, filenameErr := filepath.Abs("./db/db_data/authors.json")
 	if filenameErr != nil {
 		fmt.Println(filenameErr.Error())
@@ -48,28 +46,19 @@ type NameType struct {
 
 // TYPE HELPERS
 
-func (a *Author) ToString() string {
-	bytes, err := json.Marshal(a)
-	if err != nil {
-		fmt.Println(err.Error())
-		return string("")
-	}
-
-	return string(bytes)
-}
-
 func readAuthors() (*[]Author, error) {
-	raw, readFileErr := ioutil.ReadFile(PathToAuthors)
+	raw, readFileErr := ioutil.ReadFile(pathToAuthors)
 	if readFileErr != nil {
+		fmt.Println(readFileErr)
 		return nil, errors.New("Can`t read authors file")
 	}
 
-	var blogAuthors []Author
-	if parseErr := json.Unmarshal(raw, &blogAuthors); parseErr != nil {
+	var authors []Author
+	if parseErr := json.Unmarshal(raw, &authors); parseErr != nil {
 		return nil, parseErr
 	}
 
-	return &blogAuthors, nil
+	return &authors, nil
 }
 
 func writeAuthors(a *[]Author) error {
@@ -77,7 +66,7 @@ func writeAuthors(a *[]Author) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(PathToAuthors, bytes, 0600)
+	return ioutil.WriteFile(pathToAuthors, bytes, 0600)
 }
 
 func getAuthorArrIndex(authorId string, authors *[]Author) int {
@@ -113,62 +102,62 @@ func softAssign(from *Author, to *Author) {
 // API
 
 func (a *Author) Update() error {
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
+	authorsFileMutex.Lock()
+	defer authorsFileMutex.Unlock()
 
-	blogAuthors, err := readAuthors()
+	authors, err := readAuthors()
 	if err != nil {
 		return err
 	}
 
-	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
+	authorArrIndex := getAuthorArrIndex(a.Id, authors)
 
 	if authorArrIndex == -1 {
 		return errors.New("Author not found. Can`t save")
 	}
 
-	authorToUpdate := &(*blogAuthors)[authorArrIndex]
+	authorToUpdate := &(*authors)[authorArrIndex]
 	softAssign(a, authorToUpdate)
 	*a = *authorToUpdate
 
 	if err := validate.Struct(authorToUpdate); err != nil {
 		return err
 	}
-	return writeAuthors(blogAuthors)
+	return writeAuthors(authors)
 }
 
 func (a *Author) Delete() error {
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
+	authorsFileMutex.Lock()
+	defer authorsFileMutex.Unlock()
 
-	blogAuthors, err := readAuthors()
+	authors, err := readAuthors()
 	if err != nil {
 		return err
 	}
-	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
+	authorArrIndex := getAuthorArrIndex(a.Id, authors)
 
 	if authorArrIndex == -1 {
 		return errors.New("No author found. Can`t delete.")
 	}
 
-	*blogAuthors = append((*blogAuthors)[:authorArrIndex], (*blogAuthors)[authorArrIndex+1:]...)
-	return writeAuthors(blogAuthors)
+	*authors = append((*authors)[:authorArrIndex], (*authors)[authorArrIndex+1:]...)
+	return writeAuthors(authors)
 }
 
 func (a *Author) Get() error {
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
-	blogAuthors, err := readAuthors()
+	authorsFileMutex.Lock()
+	defer authorsFileMutex.Unlock()
+	authors, err := readAuthors()
 	if err != nil {
 		return err
 	}
-	authorArrIndex := getAuthorArrIndex(a.Id, blogAuthors)
+	authorArrIndex := getAuthorArrIndex(a.Id, authors)
 
 	if authorArrIndex == -1 {
 		return errors.New("No author found. Can`t delete.")
 	}
 
-	*a = (*blogAuthors)[authorArrIndex]
+	*a = (*authors)[authorArrIndex]
 	return nil
 }
 
@@ -185,20 +174,20 @@ func NewAuthor(a *Author) error {
 		return err
 	}
 
-	FileMutex.Lock()
-	defer FileMutex.Unlock()
+	authorsFileMutex.Lock()
+	defer authorsFileMutex.Unlock()
 
-	blogAuthors, err := readAuthors()
+	authors, err := readAuthors()
 	if err != nil {
 		return err
 	}
 
-	*blogAuthors = append(*blogAuthors, *a)
-	return writeAuthors(blogAuthors)
+	*authors = append(*authors, *a)
+	return writeAuthors(authors)
 }
 
-func Get() (*[]Author, error) {
-	FileMutex.RLock()
-	defer FileMutex.RUnlock()
+func GetAuthors() (*[]Author, error) {
+	authorsFileMutex.RLock()
+	defer authorsFileMutex.RUnlock()
 	return readAuthors()
 }
