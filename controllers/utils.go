@@ -5,7 +5,12 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 )
+
+const defaultOffset = 0
+const defaultLimit = 10
 
 func respondWithJson(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
@@ -31,4 +36,12 @@ func parseJson(r *http.Request, a interface{}) error {
 	decoder := json.NewDecoder(io.LimitReader(r.Body, 1048576))
 	defer r.Body.Close()
 	return decoder.Decode(a)
+}
+
+func queryStringToInt(qs url.Values, name string) (int, error) {
+	if len(qs[name]) == 0 {
+		return -1, nil
+	}
+
+	return strconv.Atoi(qs[name][0])
 }

@@ -1,15 +1,14 @@
 package controllers
 
 import (
-	"net/http"
-
 	"github.com/AlexanderSuv/go-blog-BE/db"
 	"github.com/gorilla/mux"
+	"net/http"
 )
 
-type Authors []db.Author
+type Posts []db.Author
 
-func (as *Authors) Get(w http.ResponseWriter, r *http.Request) {
+func (ps *Posts) Get(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
 	offset, err := queryStringToInt(qs, "offset")
@@ -30,66 +29,66 @@ func (as *Authors) Get(w http.ResponseWriter, r *http.Request) {
 		limit = defaultLimit
 	}
 
-	blogAuthors, err := db.GetAuthors(offset, limit)
+	posts, err := db.GetPosts(offset, limit)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	respondWithJson(w, blogAuthors)
+	respondWithJson(w, posts)
 }
 
-func (as *Authors) GetById(w http.ResponseWriter, r *http.Request) {
+func (ps *Posts) GetById(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	author := &db.Author{Id: id}
+	post := &db.Post{Id: id}
 
-	if err := author.Get(); err != nil {
+	if err := post.Get(); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	respondWithJson(w, author)
+	respondWithJson(w, post)
 }
 
-func (as *Authors) Post(w http.ResponseWriter, r *http.Request) {
-	var author db.Author
+func (ps *Posts) Post(w http.ResponseWriter, r *http.Request) {
+	var post db.Post
 
-	if err := parseJson(r, &author); err != nil {
+	if err := parseJson(r, &post); err != nil {
 		respondWithError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := db.NewAuthor(&author); err != nil {
+	if err := db.NewPost(&post); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	respondWithJson(w, author)
+	respondWithJson(w, post)
 }
 
-func (as *Authors) Put(w http.ResponseWriter, r *http.Request) {
+func (ps *Posts) Put(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	var author db.Author
+	var post db.Post
 
-	if err := parseJson(r, &author); err != nil {
+	if err := parseJson(r, &post); err != nil {
 		respondWithError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	author.Id = id
-	if err := author.Update(); err != nil {
+	post.Id = id
+	if err := post.Update(); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	respondWithJson(w, author)
+	respondWithJson(w, post)
 }
 
-func (as *Authors) Delete(w http.ResponseWriter, r *http.Request) {
+func (ps *Posts) Delete(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	author := db.Author{Id: id}
+	post := db.Post{Id: id}
 
-	if err := author.Delete(); err != nil {
+	if err := post.Delete(); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
